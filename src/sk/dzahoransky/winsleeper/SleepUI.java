@@ -4,8 +4,9 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import javax.swing.ButtonGroup;
 import javax.swing.ButtonModel;
@@ -35,7 +36,6 @@ public class SleepUI implements IDisplay {
 
 	public static void main(String[] args) throws ClassNotFoundException, InstantiationException, IllegalAccessException, UnsupportedLookAndFeelException {
 		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-
 		SleepUI ui = new SleepUI();
 		ui.timer = new SleepTimer(ui);
 	}
@@ -49,46 +49,42 @@ public class SleepUI implements IDisplay {
 		timerOptionsPanel = createTimerOptionsPanel();
 		window.add(timerOptionsPanel, BorderLayout.CENTER);
 		window.add(createButtonsPanel(), BorderLayout.SOUTH);
-		countDownPanel = createCountDownPanel();
+		createCountDownPanel();
 
-		window.setVisible(true);
 		window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		window.setVisible(true);
 	}
 
-	private JPanel createCountDownPanel() {
-		JPanel p = new JPanel();
+	private void createCountDownPanel() {
+		countDownPanel = new JPanel();
 		countDownDisplay = new JLabel();
 		countDownDisplay.setFont(new Font("Verdana", Font.PLAIN, 20));
-		p.add(countDownDisplay);
-		return p;
+		countDownPanel.add(countDownDisplay);
 	}
 
 	private void startCountDown() {
-		Long time = getTime();
-		if (time == null) {
-			return;
-		}
-		timer.start(time, getAction());
-		timerOptionsPanel.setVisible(false);
-		window.remove(timerOptionsPanel);
-		window.add(countDownPanel, BorderLayout.CENTER);
-		window.validate();
+		Optional.of(getTime()).ifPresent((time)->{
+			timer.start(time, getAction());
+			timerOptionsPanel.setVisible(false);
+			window.remove(timerOptionsPanel);
+			window.add(countDownPanel, BorderLayout.CENTER);
+			window.validate();
+		});
 	}
 
-	private Long getTime() {
-		Long time = null;
+	private Integer getTime() {
+		Integer time = null;
 		ButtonModel timeSelection = timeOptions.getSelection();
 		if (timeSelection != null) {
-			time = Long.parseLong(timeSelection.getActionCommand()) * SleepTimer.MinMilis;
+			time = Integer.parseInt(timeSelection.getActionCommand());
 		} else if (custom.getInputVerifier().verify(custom)) {
-			time = Long.parseLong(custom.getText()) * SleepTimer.MinMilis;
+			time = Integer.parseInt(custom.getText());
 		}
 		return time;
 	}
 
 	private SleepTimer.Action getAction() {
-		ButtonModel selection = shutDownOptions.getSelection();
-		return SleepTimer.Action.valueOf(selection.getActionCommand());
+		return SleepTimer.Action.valueOf(shutDownOptions.getSelection().getActionCommand());
 	}
 
 	private void stopCountDown() {
@@ -103,43 +99,26 @@ public class SleepUI implements IDisplay {
 	private JPanel createButtonsPanel() {
 		JPanel p = new JPanel();
 		p.setLayout(new BorderLayout());
+		
 		JButton bStart = new JButton("Start");
-		bStart.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				startCountDown();
-			}
-
-		});
-		JButton bStop = new JButton("Stop");
-		bStop.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				stopCountDown();
-			}
-		});
+		bStart.addActionListener((e)-> startCountDown());
 		p.add(bStart, BorderLayout.WEST);
+		
+		JButton bStop = new JButton("Stop");
+		bStop.addActionListener((e) -> stopCountDown());
 		p.add(bStop, BorderLayout.EAST);
 
 		JPanel pShutDownOpt = new JPanel();
 		pShutDownOpt.setLayout(new FlowLayout(FlowLayout.CENTER));
-
-		JRadioButton sleep = new JRadioButton("Sleep");
-		sleep.setActionCommand("Sleep");
-		sleep.setSelected(true);
-		JRadioButton hib = new JRadioButton("Hibernate");
-		hib.setActionCommand("Hibernate");
-		JRadioButton shutdown = new JRadioButton("Shutdown");
-		shutdown.setActionCommand("Shutdown");
-
 		shutDownOptions = new ButtonGroup();
-		shutDownOptions.add(sleep);
-		shutDownOptions.add(hib);
-		shutDownOptions.add(shutdown);
-
-		pShutDownOpt.add(sleep);
-		pShutDownOpt.add(hib);
-		pShutDownOpt.add(shutdown);
+		
+		Stream.of(SleepTimer.Action.values()).forEach((a)->{
+			JRadioButton rb = new JRadioButton(a.name());
+			rb.setActionCommand(a.name());
+			if(a==SleepTimer.Action.Shutdown)rb.setSelected(true);
+			shutDownOptions.add(rb);
+			pShutDownOpt.add(rb);
+		});
 
 		p.add(pShutDownOpt, BorderLayout.CENTER);
 
@@ -149,35 +128,15 @@ public class SleepUI implements IDisplay {
 	private JPanel createTimerOptionsPanel() {
 		JPanel p = new JPanel();
 		p.setLayout(new GridLayout(1, 7));
-
-		JRadioButton r30 = new JRadioButton("30");
-		r30.setActionCommand("30");
-		JRadioButton r45 = new JRadioButton("45");
-		r45.setActionCommand("45");
-		JRadioButton r60 = new JRadioButton("60");
-		r60.setActionCommand("60");
-		JRadioButton r75def = new JRadioButton("75");
-		r75def.setActionCommand("75");
-		r75def.setSelected(true);
-		JRadioButton r90 = new JRadioButton("90");
-		r90.setActionCommand("90");
-		JRadioButton r120 = new JRadioButton("120");
-		r120.setActionCommand("120");
-
 		timeOptions = new ButtonGroup();
-		timeOptions.add(r30);
-		timeOptions.add(r45);
-		timeOptions.add(r60);
-		timeOptions.add(r75def);
-		timeOptions.add(r90);
-		timeOptions.add(r120);
 
-		p.add(r30);
-		p.add(r45);
-		p.add(r60);
-		p.add(r75def);
-		p.add(r90);
-		p.add(r120);
+		Stream.of("30","45","60","75","90","120").forEach((option)->{
+			JRadioButton rb = new JRadioButton(option);
+			rb.setActionCommand(option);
+			if(option.equals("45"))rb.setSelected(true);
+			timeOptions.add(rb);
+			p.add(rb);
+		});
 
 		custom = new JTextField("240");
 		custom.setInputVerifier(new InputVerifier() {
@@ -219,11 +178,15 @@ public class SleepUI implements IDisplay {
 	}
 
 	@Override
-	public void refresh(long currentTime) {
-		countDownDisplay.setText("Time left: " + currentTime / SleepTimer.MinMilis + " min.");
+	public void refresh(long timeLeftSecs) {
+		if(timeLeftSecs>60){
+			countDownDisplay.setText("Time left: " + TimeUnit.SECONDS.toMinutes(timeLeftSecs) + " min.");
+		}else{
+			countDownDisplay.setText("Time left: " + timeLeftSecs + " sec.");
+		}
 	}
 }
 
 interface IDisplay {
-	public void refresh(long currentTime);
+	public void refresh(long timeLeft);
 }

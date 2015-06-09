@@ -1,42 +1,38 @@
 package sk.dzahoransky.winsleeper;
 import java.io.IOException;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.concurrent.Delayed;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class SleepTimer {
 	
-	public static final long MinMilis =  TimeUnit.MINUTES.toMillis(1);
 	public static enum Action{Sleep, Hibernate, Shutdown};
-
-	private Timer timerThread = new Timer("Shutdown timer", false);
-	
-	private Ticker ticker;
-	private Action action;
 	
 	private IDisplay display;
+	
+	private ScheduledExecutorService executor;
+	private Delayed shutdownTimer;
 	
 	public SleepTimer(IDisplay display) {
 		this.display = display;
 	}
 	
 	public void stop() {
-		stopAndclearTasks();
+		if(executor!=null) executor.shutdownNow();
 		System.out.println("Tasks canceled");
 	}
 
-	public void start(long timeInMilis, Action action) {
-		stopAndclearTasks();
+	public void start(int time, Action action) {
+		executor = Executors.newScheduledThreadPool(1);
+		shutdownTimer = executor.schedule(()->execActionCommand(action), time, TimeUnit.MINUTES);
+		executor.scheduleAtFixedRate(()->refreshDisplay(shutdownTimer.getDelay(TimeUnit.SECONDS)), 0, 1, TimeUnit.MINUTES);
+		executor.scheduleAtFixedRate(()->refreshDisplay(shutdownTimer.getDelay(TimeUnit.SECONDS)), TimeUnit.MINUTES.toSeconds(time-1), 1, TimeUnit.SECONDS);
 		
-		ticker = new Ticker(timeInMilis);
-		
-		timerThread.scheduleAtFixedRate(ticker, 0, MinMilis);
-		this.action = action;
-		
-		System.out.println(String.format("Tasks scheduled (action=%s, time=%smin)", action, timeInMilis / MinMilis));
+		System.out.println(String.format("Tasks scheduled (action=%s, time=%smin)", action, time));
 	}
 
-	public void execActionCommand() {
+	private void execActionCommand(Action action) {
 		String cmd = null;
 		
 		switch (action) {
@@ -59,32 +55,7 @@ public class SleepTimer {
 		}
 	}
 	
-	private class Ticker extends TimerTask{
-		int tick;
-		long totalTime;
-		public Ticker(long totalTime) {
-			this.totalTime = totalTime;
-		}
-		@Override
-		public void run() {
-			long remTime = totalTime - tick * MinMilis;
-			System.out.println("Executing refresh (tick="+tick+"), remaining time " + remTime + " milis.");
-			
-			display.refresh(remTime);
-			
-			if(remTime == 0){
-				cancel();
-				execActionCommand();
-			}
-			tick++;
-		}
-	}
-	
-	private void stopAndclearTasks(){
-		if(ticker != null){
-			ticker.cancel();
-			ticker = null;
-		}
-		timerThread.purge();
+	private void refreshDisplay(long timeLeftSecs){
+		display.refresh(timeLeftSecs);
 	}
 }
