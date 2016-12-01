@@ -117,7 +117,7 @@ public class SleepUI implements IDisplay, IActionProvider {
 		Arrays.stream(Action.values()).forEach( a -> {
 			JRadioButton rb = new JRadioButton(a.name());
 			rb.setActionCommand(a.name());
-			if(a==Action.Shutdown)rb.setSelected(true);
+			if(a==Action.Sleep)rb.setSelected(true);
 			shutDownOptions.add(rb);
 			pShutDownOpt.add(rb);
 		});
