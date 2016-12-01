@@ -46,7 +46,7 @@ public class SleepUI implements IDisplay, IActionProvider {
 
 	public SleepUI() {
 		window = new JFrame("Windows shutdown scheduler.");
-		window.setSize(new Dimension(380, 100));
+		window.setSize(new Dimension(380, 112));
 
 		window.setLayout(new BorderLayout());
 
